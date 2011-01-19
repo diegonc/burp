@@ -76,24 +76,63 @@ static int category_is_valid(const char *cat) {
   return(res ? res->num : 0);
 }
 
-static int read_config_file() {
-  int ret = 0;
-  char *ptr, *xdg_config_home;
-  char config_path[PATH_MAX + 1], line[BUFSIZ];
-  FILE *conf_fd;
+static char* get_config_path() {
+  static char config_file[] = "/burp/burp.conf";
+  static char default_config_prefix[] = "/.config";
+  size_t pathlen;
+  char *xdg_config_home, *path, *ptr;
+  int append_prefix;
 
+  append_prefix = 0;
+  pathlen = sizeof(config_file);
   xdg_config_home = getenv("XDG_CONFIG_HOME");
   if (xdg_config_home) {
-    snprintf(&config_path[0], PATH_MAX, "%s/burp/burp.conf", xdg_config_home);
+    pathlen += strlen(xdg_config_home);
   } else {
-    snprintf(&config_path[0], PATH_MAX, "%s/.config/burp/burp.conf",
-      getenv("HOME"));
+    xdg_config_home = getenv("HOME");
+    pathlen += sizeof(default_config_prefix) - 1;
+    append_prefix = 1;
+  }
+
+  path = malloc(pathlen);
+  if (!path) {
+    if (config->verbose > 1) {
+      printf("::DEBUG:: Unable to allocate memory.\n");
+    }
+    return(0);
+  }
+
+  ptr = path;
+  strcpy(ptr, xdg_config_home);
+
+  ptr += strlen(xdg_config_home);
+  if (append_prefix) {
+    strcpy(ptr, default_config_prefix);
+    ptr += sizeof(default_config_prefix) - 1;
+  }
+
+  /* copy null terminator, too */
+  memcpy(ptr, config_file, sizeof(config_file));
+  return path;
+}
+
+static int read_config_file() {
+  int ret = 0;
+  char *ptr, *config_path;
+  char line[BUFSIZ];
+  FILE *conf_fd;
+
+  config_path = get_config_path();
+  if (! config_path) {
+    /* error already reported. */
+    return(ret);
   }
 
   if (! file_exists(config_path)) {
     if (config->verbose > 1) {
       printf("::DEBUG:: No config file found\n");
     }
+    free(config_path);
     return(ret);
   }
 
@@ -163,6 +202,7 @@ static int read_config_file() {
   }
 
   fclose(conf_fd);
+  free(config_path);
 
   return(ret);
 }
@@ -233,7 +273,7 @@ static int parseargs(int argc, char **argv) {
         if (config->cookies) {
           FREE(config->cookies);
         }
-        config->cookies = strndup(optarg, PATH_MAX);
+        config->cookies = strdup(optarg);
         break;
       case 'k':
         config->persist = TRUE;
