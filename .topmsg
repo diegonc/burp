@@ -1,3 +1,5 @@
 From: Diego Nieto Cid <dnietoc@gmail.com>
-Subject: Fix non-portable include.
+Subject: Don't rely on PATH_MAX.
 
+* burp.c (read_config_file): Use asprintf instead of snprintf.
+(parseargs): Don't limit cookie filename to PATH_MAX chars.
