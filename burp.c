@@ -78,20 +78,31 @@ static int category_is_valid(const char *cat) {
 
 static int read_config_file() {
   int ret = 0;
-  char *ptr, *xdg_config_home;
-  char config_path[PATH_MAX + 1], line[BUFSIZ];
+  char *ptr, *xdg_config_home, *config_path;
+  char line[BUFSIZ];
 
   xdg_config_home = getenv("XDG_CONFIG_HOME");
-  if (xdg_config_home)
-    snprintf(&config_path[0], PATH_MAX, "%s/burp/burp.conf", xdg_config_home);
-  else
-    snprintf(&config_path[0], PATH_MAX, "%s/.config/burp/burp.conf",
-      getenv("HOME"));
+  if (xdg_config_home) {
+    ret = asprintf(&config_path, "%s/burp/burp.conf", xdg_config_home);
+  } else {
+    ret = asprintf(&config_path, "%s/.config/burp/burp.conf",
+            getenv("HOME"));
+  }
+
+  if (ret == -1) {
+    if (config->verbose > 1) {
+      printf("::DEBUG:: Unable to allocate memory.\n");
+    }
+    return(1);
+  }
+
+  ret = 0;
 
   if (! file_exists(config_path)) {
     if (config->verbose > 1)
       printf("::DEBUG:: No config file found\n");
-    return ret;
+    free(config_path);
+    return(ret);
   }
 
   if (config->verbose > 1)
@@ -154,6 +165,7 @@ static int read_config_file() {
   }
 
   fclose(conf_fd);
+  free(config_path);
 
   return ret;
 }
@@ -220,7 +232,7 @@ static int parseargs(int argc, char **argv) {
       case 'C':
         if (config->cookies)
           FREE(config->cookies);
-        config->cookies = strndup(optarg, PATH_MAX);
+        config->cookies = strdup(optarg);
         break;
       case 'k':
         config->persist = TRUE;
